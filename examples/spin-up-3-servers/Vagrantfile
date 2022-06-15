@@ -1,0 +1,46 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  instance_count = 3
+  instance_username = "ci"
+
+  (1..instance_count).each do |id|
+    instance_name = "instance-#{id}"
+    
+    # define a scope for each instance
+    config.vm.define instance_name do |ins|
+      ins.vm.box = "hashicorp/bionic64"
+      ins.vm.hostname = instance_name
+
+      # NOTE: default virtualbox only allow ip ranges: "192.168.56.x"
+      # so if you want to use any ip, (vbox will create new one if not exist)
+      # then you need to modify /etc/vbox/networks.conf,
+      # see https://www.virtualbox.org/manual/ch06.html#network_hostonly for details
+  
+      # set the IP address of the instance
+      # it will look like 192.168.20.11, 192.168.20.13, 192.168.20.13
+      ins.vm.network "private_network", ip: "192.168.20.1#{id}"
+
+      ins.vm.provider "virtualbox" do |vb|
+        vb.name = instance_name
+        vb.memory = 1024
+        vb.cpus = 1
+      end
+
+      ins.vm.provision "shell" do |s|
+        ssh_pub_key = File.readlines("#{Dir.home}/.ssh/id_rsa.pub").first.strip
+        s.inline = <<-SHELL
+          # ci user
+          useradd -s /bin/bash -d /home/#{instance_username}/ -m -G sudo #{instance_username}
+          echo #{instance_username} 'ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          mkdir -p /home/#{instance_username}/.ssh && chown -R #{instance_username} /home/#{instance_username}/.ssh
+          echo #{ssh_pub_key} >> /home/#{instance_username}/.ssh/authorized_keys
+        SHELL
+      end
+
+    end
+
+  end
+
+end
