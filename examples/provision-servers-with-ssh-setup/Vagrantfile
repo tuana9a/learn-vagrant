@@ -2,8 +2,9 @@
 # vi: set ft=ruby :
 
 Vagrant.configure("2") do |config|
-  instance_count = 3
-  instance_username = "ci"
+  instance_count = ENV["VG_COUNT"] || 3
+  instance_username = ENV["VG_USERNAME"] || ENV["USERNAME"]
+  public_key_file = ENV["VG_PUBLIC_KEY_FILE"] || "#{Dir.home}/.ssh/id_rsa.pub"
 
   (1..instance_count).each do |id|
     instance_name = "instance-#{id}"
@@ -29,13 +30,13 @@ Vagrant.configure("2") do |config|
       end
 
       ins.vm.provision "shell" do |s|
-        ssh_pub_key = File.readlines("#{Dir.home}/.ssh/id_rsa.pub").first.strip
+        public_key_content = File.readlines(public_key_file).first.strip
         s.inline = <<-SHELL
           # ci user
           useradd -s /bin/bash -d /home/#{instance_username}/ -m -G sudo #{instance_username}
           echo #{instance_username} 'ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
           mkdir -p /home/#{instance_username}/.ssh && chown -R #{instance_username} /home/#{instance_username}/.ssh
-          echo #{ssh_pub_key} >> /home/#{instance_username}/.ssh/authorized_keys
+          echo #{public_key_content} >> /home/#{instance_username}/.ssh/authorized_keys
         SHELL
       end
 
